@@ -1,2 +1,2 @@
-# marvin_profiler
+# marvin_metrics
 This displays profiler metrics for marvin
