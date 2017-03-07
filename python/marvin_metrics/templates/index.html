@@ -1,0 +1,23 @@
+{# This is a Jinja2 comment #}
+
+{# In Jinja2, layout is the page from which all others inherit, using extends.  It mostly imports external libraries #}
+{% extends "layout.html" %}
+
+{# In Jinja2, this lets the header know which page is the active page (to highlight it) #}
+{% set active_page = active_page|default("index") %}
+
+{# insert custom header files here, like specialized css #}
+{% block csshead %}
+{% endblock csshead %}
+
+{# here you are defining the content that gets inserted into the layout body block #}
+{% block body %}
+
+<div class='well'>
+    <h1>{{page|title}} for {{title}}</h1>
+</div>
+
+
+
+{% endblock body %}
+

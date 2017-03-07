@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+{% set active_page = active_page|default("myapp") %}
+
+<html lang="en">
+
+<!-- Html header -->
+<head>
+    <!-- CSS sources-->
+    {# include your css files #}
+    <meta charset="UTF-8">
+    <title>{{title}}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.6/css/bootstrap.min.css">
+    <link rel="shortcut icon" href="{{url_for('static',filename='images/favicon.ico')}}" type="image/x-icon" />
+    {% block csshead %}{% endblock csshead %}
+
+    <!-- Javascript sources-->
+    {# include your js files #}
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.6/js/bootstrap.min.js"></script>
+    {% block jshead %}{% endblock jshead %}
+</head>
+
+<!-- Html body -->
+<body class='{{page|default("marvinmetrics")}}'>
+
+    <!-- Add a header -->
+    {# the include tells Jinja2 to import the contents of the named file directly in this location #}
+    {% include 'header.html' %}
+
+    <!-- Main Body -->
+    <div class="container-fluid" id="content">
+        {% block body %}{% endblock body %}
+    </div>
+
+    <!-- Add a Footer -->
+    {% include 'footer.html' %}
+
+    <!-- Javascript Code Block -->
+    {# Put the code block at the bottom so it only loads once the rest of the page has loaded #}
+    {# Load the Javascsript code to use Flask url_for #}
+    {{ JSGlue.include() }}
+    {% block code %}{% endblock code %}
+</body>
+</html>
+
