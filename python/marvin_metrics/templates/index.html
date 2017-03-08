@@ -8,16 +8,134 @@
 
 {# insert custom header files here, like specialized css #}
 {% block csshead %}
+<style>
+#pageviews svg {
+  height: 500px;
+}
+</style>
 {% endblock csshead %}
 
 {# here you are defining the content that gets inserted into the layout body block #}
 {% block body %}
 
 <div class='well'>
-    <h1>{{page|title}} for {{title}}</h1>
+    <div class='row'>
+        <div class='col-md-10'>
+            <h1>{{page|title}} for {{title}}</h1>
+        </div>
+    </div>
+    <div class='row'>
+        <div id='test'>
+        </div>
+    </div>
+    <div class='row' id='page'>
+        <div class='col-md-6'>
+            <div id='pageviews'>
+                <h3>Total Requests</h3>
+                <svg></svg>
+            </div>
+        </div>
+        <div class='col-md-6'>
+            <div id='uniqvis'>
+            </div>
+        </div>
+    </div>
 </div>
-
-
 
 {% endblock body %}
 
+<!-- JS Code -->
+{% block code %}
+<script type='text/javascript'>
+    // to create a Sankey curve interpolation
+    function interpolateSankey(points) {
+      var x0 = points[0][0], y0 = points[0][1], x1, y1, x2,
+          path = [x0, ",", y0],
+          i = 0,
+          n = points.length;
+      while (++i < n) {
+        x1 = points[i][0], y1 = points[i][1], x2 = (x0 + x1) / 2;
+        path.push("C", x2, ",", y0, " ", x2, ",", y1, " ", x1, ",", y1);
+        x0 = x1, y0 = y1;
+      }
+      return path.join("");
+    }
+
+    // This is the DC library for the heatmap
+    var chart = dc.heatMap("#test");
+    d3.json(Flask.url_for('index_page.getjson'), function(error, data) {
+
+        // var dateFormat = d3.time.format("%Y-%m-%d");
+
+        // data.forEach(function (d) {
+        //     d.dd = dateFormat.parse(d.date);
+        //     d.month = d3.time.month(d.dd).getMonth(); // pre-calculate month for better performance
+        //     d.year = d3.time.year(d.dd).getFullYear();
+        //     d.close = +d.close; // coerce to number
+        //     d.open = +d.open;
+        // });
+
+      var ndx    = crossfilter(data),
+          runDim = ndx.dimension(function(d) { return [+d.date, +d.time]; }),
+          runGroup = runDim.group().reduceSum(function(d) { return +d.count; });
+      chart
+        .width(45 * 20 + 80)
+        .height(45 * 5 + 40)
+        .dimension(runDim)
+        .group(runGroup)
+        .keyAccessor(function(d) { return +d.key[0]; })
+        .valueAccessor(function(d) { return +d.key[1]; })
+        .colorAccessor(function(d) { return +d.value; })
+        .title(function(d) {
+            return "Date:   " + d.key[0] + "\n" +
+                   "Time:  " + d.key[1] + "\n" +
+                   "Count: " + (299000 + d.value) + " km/s";})
+        .colors(["#ffffd9","#edf8b1","#c7e9b4","#7fcdbb","#41b6c4","#1d91c0","#225ea8","#253494","#081d58"])
+        .calculateColorDomain();
+      chart.render();
+    });
+
+    // This is a line chart using the NVD3 library
+    d3.json(Flask.url_for('index_page.getlinejson'), function(data) {
+        nv.addGraph(function() {
+          var chart = nv.models.lineWithFocusChart()
+            .x(function(d) { return moment(d[0]); })
+            .y(function(d) { return d[1]; })
+            .xScale(d3.time.scale())
+            .clipEdge(true)
+            .duration(300)
+            //.isArea(true)
+            .interpolate(interpolateSankey)
+            .useInteractiveGuideline(true)
+            //.showLabels(true)
+            .color(d3.scale.category10().range());
+
+          chart.xAxis
+              .showMaxMin(false)
+              .axisLabel("Date")
+              .staggerLabels(true)
+              .tickFormat(function(d) { return moment(d).format('YYYY-MM-DD'); });
+
+          chart.x2Axis
+                .tickFormat(function(d) { return moment(d).format('YYYY-MM-DD'); });
+
+          chart.yAxis
+              .axisLabel("Count")
+              .tickFormat(d3.format(',.2f'));
+
+          chart.y2Axis
+              .tickFormat(d3.format(',.2f'));
+
+          d3.select('#pageviews svg')
+              .datum(data)
+              .transition().duration(500)
+              .call(chart);
+
+          nv.utils.windowResize(chart.update);
+
+          return chart;
+        });
+    });
+
+</script>
+{% endblock code %}
