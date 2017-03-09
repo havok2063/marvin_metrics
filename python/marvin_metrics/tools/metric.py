@@ -6,7 +6,7 @@
 # @Author: Brian Cherinka
 # @Date:   2017-03-08 16:46:38
 # @Last modified by:   Brian Cherinka
-# @Last Modified time: 2017-03-08 18:19:57
+# @Last Modified time: 2017-03-09 14:43:30
 
 from __future__ import print_function, division, absolute_import
 import dateutil
@@ -47,6 +47,7 @@ class FlaskProfiler(object):
         # from marvin import config
         # self._urlmap = config.urlmap
         # self.endpoints = {d['url'].replace('{', '<').replace('}', '>'): e for k, v in self._urlmap.items() for e, d in self._urlmap[k].items()}
+        self.filter_meas()
         self.build_dicts()
 
     def build_dicts(self):
@@ -68,10 +69,17 @@ class FlaskProfiler(object):
         #self.dips = self.sort_and_order(dips)
         #self.dnames = self.sort_and_order(dnames)
 
+    def filter_meas(self):
+        ''' filter out the measurements list of crap '''
+        namelist = ['jsglue', 'getgalidlist', 'galidselect']
+        self.meas = [m for m in self.allmeas if not any(itertools.imap(m.name.__contains__, namelist))]
+        iplist = ['128.220.160.159']
+        self.meas = [m for m in self.meas if m.ip not in iplist]
+
     def remove_devs(self):
         ''' filter out the developer ip addresses '''
         iplist = ['128.220.160.159']
-        self.meas = [m for m in self.allmeas if m.ip not in iplist]
+        self.meas = [m for m in self.meas if m.ip not in iplist]
 
     def get_ips(self):
         ''' Get a list of all ips used across the entire sample, and a list of uniqips '''
@@ -87,20 +95,31 @@ class FlaskProfiler(object):
         self.meas = [m for m in self.allmeas if m.__getattribute__(name) == value]
 
     @get_meas
-    def get_timedeltas(self):
-        timedeltas = []
-        starttimes = [m.starttime for m in self.meas]
-        shft_st = deque(starttimes)
-        shft_st.rotate(-1)
-        for i, m in enumerate(self.meas):
-            timedeltas.append((shft_st[i] - m.endtime).total_seconds())
-        self.timedeltas = timedeltas
+    def get_timedeltas(self, meas=None):
+        if not meas:
+            meas = self.meas if self.meas else self.allmeas
 
-        # starttimes = [m.starttime for m in self.meas]
-        # endtimes = [m.endtime for m in self.meas]
+        # timedeltas = []
+        # starttimes = [m.starttime for m in meas]
+        # shft_st = deque(starttimes)
+        # shft_st.rotate(-1)
+        # for i, m in enumerate(meas):
+        #     timedeltas.append((shft_st[i] - m.endtime).total_seconds())
+        # self.timedeltas = timedeltas
+
+        # starttimes = [m.starttime for m in meas]
+        # endtimes = [m.endtime for m in meas]
         # shft_st = deque(starttimes)
         # shft_st.rotate(-1)
         # self.timedeltas = [(sst - endtimes[i]).total_seconds() for i, sst in enumerate(shft_st)]
+
+        starttimes = [m.starttime for m in meas]
+        endtimes = [m.endtime for m in meas]
+        elapsed = [m.elapsed for m in meas]
+        shft_st = deque(starttimes)
+        shft_st.rotate(-1)
+        timedeltas = [(a - b).total_seconds() - c for a, b, c in zip(shft_st, endtimes, elapsed)]
+        return timedeltas
 
     def split_datetime(self, dt):
         ''' split a datetime into a tuple of string iso format date and time '''
@@ -108,9 +127,9 @@ class FlaskProfiler(object):
 
     def get_count(self, param):
         ''' retrieves date independent count of a given parameter across the entire set of measurements '''
-        paramlist = [m.__getattribute__(param) for m in self.allmeas]
+        paramlist = [m.__getattribute__(param) for m in self.meas]
         count = Counter(paramlist)
-        return count.most_common(len(count))
+        return count
 
     def pad_times(self, start_time='20170101T000000', num_hours=24):
         ''' make a list of datetimes from the specified start time with num_hours long'''

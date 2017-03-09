@@ -6,13 +6,14 @@
 # @Author: Brian Cherinka
 # @Date:   2017-03-08 16:43:52
 # @Last modified by:   Brian Cherinka
-# @Last Modified time: 2017-03-08 17:52:35
+# @Last Modified time: 2017-03-08 22:59:39
 
 from __future__ import print_function, division, absolute_import
 from sqlalchemy import create_engine, MetaData
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, Float, String
+from sqlalchemy.ext.hybrid import hybrid_property
 import datetime
 import json
 import os
@@ -50,49 +51,49 @@ class Measurements(Base):
     context = Column(String)
     name = Column(String)
 
-    @property
+    @hybrid_property
     def starttime(self):
         ''' converts to local EST date/time from Unix timestamp in sec, [from time.time()]'''
         return datetime.datetime.fromtimestamp(float(self.startedAt))
 
-    @property
+    @hybrid_property
     def endtime(self):
         ''' converts to local EST date/time from Unix timestamp in sec, [from time.time()]'''
         return datetime.datetime.fromtimestamp(float(self.endedAt))
 
-    @property
+    @hybrid_property
     def startdate(self):
         return self.starttime.date().isoformat()
 
-    @property
+    @hybrid_property
     def enddate(self):
         return self.endtime.date().isoformat()
 
-    @property
+    @hybrid_property
     def context_dict(self):
         return json.loads(self.context)
 
-    @property
+    @hybrid_property
     def header_dict(self):
         return self.context_dict['headers']
 
-    @property
+    @hybrid_property
     def ip(self):
         return self.context_dict['ip']
 
-    @property
+    @hybrid_property
     def url(self):
         return self.context_dict['url']
 
-    @property
+    @hybrid_property
     def is_api(self):
         return 'api.sdss.org' in self.url
 
-    @property
+    @hybrid_property
     def route(self):
         return 'api' if self.is_api else 'web'
 
-    @property
+    @hybrid_property
     def referer(self):
         return self.header_dict['Referer'] if 'Referer' in self.header_dict.keys() else None
 

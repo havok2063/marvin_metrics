@@ -4,6 +4,8 @@
 from __future__ import print_function, division, absolute_import
 from flask import Blueprint, render_template, jsonify
 from flask_classy import FlaskView, route
+from itertools import groupby
+from collections import OrderedDict, Counter
 import numpy as np
 index = Blueprint("index_page", __name__)
 
@@ -76,6 +78,9 @@ class Index(FlaskView):
     def getppv(self):
         ''' Gets the JSON
         '''
+
+        t = []
+
         values = []
         for date in self.dates:
             thedate = date.date()
@@ -83,7 +88,15 @@ class Index(FlaskView):
             uniqname = len(self.fp.dnames[thedate]) if thedate in self.fp.dnames else 0
             ppv = float(uniqname) / uniqip if uniqip != 0 else 0
             values.append([thedate.isoformat(), ppv])
-        data = [{'key': 'pages per visit', 'values': values}]
+
+            # get other way
+            if thedate in self.fp.thed:
+                f = {k: list(g) for k, g in groupby(sorted(self.fp.thed[thedate], key=lambda t: t.ip), lambda t: t.ip)}
+                t.append([thedate.isoformat(), np.mean([len(Counter([l.name for l in v])) for k, v in f.items()])])
+            else:
+                t.append([thedate.isoformat(), 0])
+
+        data = [{'key': 'pages per visit', 'values': values}, {'key': 'avg ppv', 'values': t}]
         return jsonify(data)
 
     @route('/getnewlost/', methods=['GET'], endpoint='getnewlost')
@@ -106,6 +119,53 @@ class Index(FlaskView):
                 {'key': 'repeat users', 'values': repvals},
                 {'key': 'lost users', 'values': lostvals},
                 {'key': 'bounce users', 'values': bouncevals}]
+        return jsonify(data)
+
+    @route('/gettd/', methods=['GET'], endpoint='gettd')
+    def gettd(self):
+        ''' Gets the JSON
+        '''
+
+        values = []
+        for date in self.dates:
+            thedate = date.date()
+            if thedate in self.fp.thed:
+                f = {k: list(g) for k, g in groupby(sorted(self.fp.thed[thedate], key=lambda t: t.ip), lambda t: t.ip)}
+                tdlist = []
+                for k, v in f.items():
+                    tds = self.fp.get_timedeltas(meas=v)
+                    tdlist.append(sum(tds[:-1]))
+                tdstats = [np.min(tdlist), np.median(tdlist), np.max(tdlist)]
+                values.append([thedate.isoformat(), tdstats[1] / 60.])
+
+        data = [{'key': 'avg time deltas', 'values': values}]
+        return jsonify(data)
+
+    @route('/getpagestream/', methods=['GET'], endpoint='getpagestream')
+    def getpagestream(self):
+        ''' Gets the JSON
+        '''
+
+        topten = [u'/marvin2/api/maps/<name>/<bintype>/<template_kin>/',
+                  u'/marvin2/api/maps/<name>/<bintype>/<template_kin>/map/<property_name>/<channel>/',
+                  u'/marvin2/api/cubes/<name>/', u'/marvin2/galaxy/<galid>',
+                  u'/marvin2/api/general/getroutemap/', u'/marvin2/galaxy/getspaxel',
+                  u'/marvin2/api/modelcubes/<name>/<bintype>/<template_kin>/',
+                  u'/marvin2/api/spaxels/<name>/properties/<template_kin>/<x>/<y>/',
+                  u'/marvin2/api/spaxels/<name>/spectra/<x>/<y>/',
+                  u'/marvin2/api/spaxels/<name>/models/<template_kin>/<x>/<y>/']
+
+        data = []
+        test = {k: list(g) for k, g in groupby(sorted(self.fp.meas, key=lambda t: t.name), lambda t: t.name)}
+        for k, v in test.items():
+            values = []
+            if k in topten:
+                c = Counter([m.starttime.date() for m in v])
+                for date in self.dates:
+                    values.append([date.date().isoformat(), c[date.date()] if date.date() in c else 0])
+                tmp = {'key': k, 'values': values}
+                data.append(tmp)
+
         return jsonify(data)
 
 Index.register(index)

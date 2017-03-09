@@ -12,6 +12,26 @@
 .nvline svg {
   height: 500px;
 }
+
+        /* --- Sankey chart styles --- */
+        .node rect {
+            cursor: move;
+            fill-opacity: .9;
+            shape-rendering: crispEdges;
+        }
+        .node text {
+            pointer-events: none;
+            text-shadow: 0 1px 0 #fff;
+        }
+        .link {
+            fill: none;
+            stroke: #000;
+            stroke-opacity: .2;
+        }
+        .link:hover {
+            stroke-opacity: .5;
+        }
+
 </style>
 {% endblock csshead %}
 
@@ -52,6 +72,28 @@
         <div class='col-md-6'>
             <div class='nvline' id='newlose'>
                 <h3>New/Lost Visitors</h3>
+                <svg></svg>
+            </div>
+        </div>
+    </div>
+    <div class='row' id='page'>
+        <div class='col-md-6'>
+            <div class='nvline' id='td'>
+                <h3>Ave Time Duration</h3>
+                <svg></svg>
+            </div>
+        </div>
+        <div class='col-md-6'>
+            <div class='nvline' id='blank'>
+                <h3>Blank</h3>
+                <svg></svg>
+            </div>
+        </div>
+    </div>
+    <div class='row' id='page'>
+        <div class='col-md-6'>
+            <div class='nvline' id='stackpages'>
+                <h3>Page Distribution</h3>
                 <svg></svg>
             </div>
         </div>
@@ -136,7 +178,7 @@
                 .tickFormat(function(d) { return moment(d).format('YYYY-MM-DD'); });
 
           chart.yAxis
-              .axisLabel("Count")
+              .axisLabel("Number")
               .tickFormat(d3.format(',.2f'));
 
           chart.y2Axis
@@ -178,7 +220,7 @@
                 .tickFormat(function(d) { return moment(d).format('YYYY-MM-DD'); });
 
           chart.yAxis
-              .axisLabel("Count")
+              .axisLabel("Number")
               .tickFormat(d3.format(',.2f'));
 
           chart.y2Axis
@@ -220,7 +262,7 @@
                 .tickFormat(function(d) { return moment(d).format('YYYY-MM-DD'); });
 
           chart.yAxis
-              .axisLabel("Count")
+              .axisLabel("Number")
               .tickFormat(d3.format(',.2f'));
 
           chart.y2Axis
@@ -246,7 +288,7 @@
             .xScale(d3.time.scale())
             .clipEdge(true)
             .duration(300)
-            //.isArea(true)
+            .isArea(true)
             .interpolate(interpolateSankey)
             .useInteractiveGuideline(true)
             //.showLabels(true)
@@ -269,6 +311,126 @@
               .tickFormat(d3.format(',.2f'));
 
           d3.select('#newlose svg')
+              .datum(data)
+              .transition().duration(500)
+              .call(chart);
+
+          nv.utils.windowResize(chart.update);
+
+          return chart;
+        });
+    });
+
+    // This is a line chart using the NVD3 library for avg time duration
+    d3.json(Flask.url_for('index_page.gettd'), function(data) {
+        nv.addGraph(function() {
+          var chart = nv.models.lineWithFocusChart()
+            .x(function(d) { return moment(d[0]); })
+            .y(function(d) { return d[1]; })
+            .xScale(d3.time.scale())
+            .clipEdge(true)
+            .duration(300)
+            .isArea(true)
+            .interpolate(interpolateSankey)
+            .useInteractiveGuideline(true)
+            //.showLabels(true)
+            .color(d3.scale.category10().range());
+
+          chart.xAxis
+              .showMaxMin(false)
+              .axisLabel("Date")
+              .staggerLabels(true)
+              .tickFormat(function(d) { return moment(d).format('YYYY-MM-DD'); });
+
+          chart.x2Axis
+                .tickFormat(function(d) { return moment(d).format('YYYY-MM-DD'); });
+
+          chart.yAxis
+              .axisLabel("Time (min)")
+              .tickFormat(d3.format(',.2f'));
+
+          chart.y2Axis
+              .tickFormat(d3.format(',.2f'));
+
+          d3.select('#td svg')
+              .datum(data)
+              .transition().duration(500)
+              .call(chart);
+
+          nv.utils.windowResize(chart.update);
+
+          return chart;
+        });
+    });
+
+
+// Sankey test
+    var data = {
+        nodes:
+            [
+                {'node': 1, 'name': 'Test 1', 'group':'date'},
+                {'node': 2, 'name': 'Test 2', 'group':'date'},
+                {'node': 3, 'name': 'Test 3', 'group':'time'},
+                {'node': 4, 'name': 'Test 4', 'group':'stuff'},
+                {'node': 5, 'name': 'Test 5', 'group':'place'},
+                {'node': 6, 'name': 'Test 6', 'group':'place'}
+            ],
+        links:
+            [
+                {'source': 0, 'target': 1, 'value': 2295},
+                {'source': 0, 'target': 5, 'value': 1199},
+                {'source': 1, 'target': 2, 'value': 1119},
+                {'source': 1, 'target': 5, 'value': 1176},
+                {'source': 2, 'target': 3, 'value': 487},
+                {'source': 2, 'target': 5, 'value': 632},
+                {'source': 3, 'target': 4, 'value': 301},
+                {'source': 3, 'target': 5, 'value': 186}
+            ]
+    };
+    nv.addGraph(function() {
+        var chart = nv.models.sankeyChart()
+            .width(790)
+            .units('elephants');
+        d3.select('#blank svg')
+            .datum(data)
+            .attr('width', 790)
+            .call(chart);
+        return chart;
+    });
+
+
+    // This is a line chart using the NVD3 library for page distribution over time
+    d3.json(Flask.url_for('index_page.getpagestream'), function(data) {
+        nv.addGraph(function() {
+          var chart = nv.models.stackedAreaWithFocusChart()
+            .x(function(d) { return moment(d[0]); })
+            .y(function(d) { return d[1]; })
+            .xScale(d3.time.scale())
+            .clipEdge(true)
+            .duration(300)
+            //.isArea(true)
+            .interpolate(interpolateSankey)
+            .useInteractiveGuideline(true)
+            //.showLabels(true)
+            .color(d3.scale.category10().range());
+
+          chart.xAxis
+              .showMaxMin(false)
+              .axisLabel("Date")
+              .staggerLabels(true)
+              .tickFormat(function(d) { return moment(d).format('YYYY-MM-DD'); });
+
+          chart.x2Axis
+                .tickFormat(function(d) { return moment(d).format('YYYY-MM-DD'); });
+
+          chart.yAxis
+              .axisLabel("Number")
+              .tickFormat(d3.format(',.2f'));
+
+          chart.y2Axis
+              .tickFormat(d3.format(',.2f'));
+
+          d3.select('#stackpages svg')
               .datum(data)
               .transition().duration(500)
               .call(chart);
