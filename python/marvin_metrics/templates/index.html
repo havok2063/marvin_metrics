@@ -9,7 +9,7 @@
 {# insert custom header files here, like specialized css #}
 {% block csshead %}
 <style>
-#pageviews svg {
+.nvline svg {
   height: 500px;
 }
 </style>
@@ -30,13 +30,29 @@
     </div>
     <div class='row' id='page'>
         <div class='col-md-6'>
-            <div id='pageviews'>
-                <h3>Total Requests</h3>
+            <div class='nvline' id='pageviews'>
+                <h3>Total "Page Views" (Requests)</h3>
                 <svg></svg>
             </div>
         </div>
         <div class='col-md-6'>
-            <div id='uniqvis'>
+            <div class='nvline' id='uniqvis'>
+                <h3>Unique "Visitors" (IPs)</h3>
+                <svg></svg>
+            </div>
+        </div>
+    </div>
+    <div class='row' id='page'>
+        <div class='col-md-6'>
+            <div class='nvline' id='ppv'>
+                <h3>Pages Per Visit</h3>
+                <svg></svg>
+            </div>
+        </div>
+        <div class='col-md-6'>
+            <div class='nvline' id='newlose'>
+                <h3>New/Lost Visitors</h3>
+                <svg></svg>
             </div>
         </div>
     </div>
@@ -95,7 +111,7 @@
       chart.render();
     });
 
-    // This is a line chart using the NVD3 library
+    // This is a line chart using the NVD3 library for total requests
     d3.json(Flask.url_for('index_page.getlinejson'), function(data) {
         nv.addGraph(function() {
           var chart = nv.models.lineWithFocusChart()
@@ -127,6 +143,132 @@
               .tickFormat(d3.format(',.2f'));
 
           d3.select('#pageviews svg')
+              .datum(data)
+              .transition().duration(500)
+              .call(chart);
+
+          nv.utils.windowResize(chart.update);
+
+          return chart;
+        });
+    });
+
+    // This is a line chart using the NVD3 library for unique visitors
+    d3.json(Flask.url_for('index_page.getuniqvisits'), function(data) {
+        nv.addGraph(function() {
+          var chart = nv.models.lineWithFocusChart()
+            .x(function(d) { return moment(d[0]); })
+            .y(function(d) { return d[1]; })
+            .xScale(d3.time.scale())
+            .clipEdge(true)
+            .duration(300)
+            //.isArea(true)
+            .interpolate(interpolateSankey)
+            .useInteractiveGuideline(true)
+            //.showLabels(true)
+            .color(d3.scale.category10().range());
+
+          chart.xAxis
+              .showMaxMin(false)
+              .axisLabel("Date")
+              .staggerLabels(true)
+              .tickFormat(function(d) { return moment(d).format('YYYY-MM-DD'); });
+
+          chart.x2Axis
+                .tickFormat(function(d) { return moment(d).format('YYYY-MM-DD'); });
+
+          chart.yAxis
+              .axisLabel("Count")
+              .tickFormat(d3.format(',.2f'));
+
+          chart.y2Axis
+              .tickFormat(d3.format(',.2f'));
+
+          d3.select('#uniqvis svg')
+              .datum(data)
+              .transition().duration(500)
+              .call(chart);
+
+          nv.utils.windowResize(chart.update);
+
+          return chart;
+        });
+    });
+
+    // This is a line chart using the NVD3 library for pages/visitors
+    d3.json(Flask.url_for('index_page.getppv'), function(data) {
+        nv.addGraph(function() {
+          var chart = nv.models.lineWithFocusChart()
+            .x(function(d) { return moment(d[0]); })
+            .y(function(d) { return d[1]; })
+            .xScale(d3.time.scale())
+            .clipEdge(true)
+            .duration(300)
+            //.isArea(true)
+            .interpolate(interpolateSankey)
+            .useInteractiveGuideline(true)
+            //.showLabels(true)
+            .color(d3.scale.category10().range());
+
+          chart.xAxis
+              .showMaxMin(false)
+              .axisLabel("Date")
+              .staggerLabels(true)
+              .tickFormat(function(d) { return moment(d).format('YYYY-MM-DD'); });
+
+          chart.x2Axis
+                .tickFormat(function(d) { return moment(d).format('YYYY-MM-DD'); });
+
+          chart.yAxis
+              .axisLabel("Count")
+              .tickFormat(d3.format(',.2f'));
+
+          chart.y2Axis
+              .tickFormat(d3.format(',.2f'));
+
+          d3.select('#ppv svg')
+              .datum(data)
+              .transition().duration(500)
+              .call(chart);
+
+          nv.utils.windowResize(chart.update);
+
+          return chart;
+        });
+    });
+
+    // This is a line chart using the NVD3 library for new/lost vistors
+    d3.json(Flask.url_for('index_page.getnewlost'), function(data) {
+        nv.addGraph(function() {
+          var chart = nv.models.lineWithFocusChart()
+            .x(function(d) { return moment(d[0]); })
+            .y(function(d) { return d[1]; })
+            .xScale(d3.time.scale())
+            .clipEdge(true)
+            .duration(300)
+            //.isArea(true)
+            .interpolate(interpolateSankey)
+            .useInteractiveGuideline(true)
+            //.showLabels(true)
+            .color(d3.scale.category10().range());
+
+          chart.xAxis
+              .showMaxMin(false)
+              .axisLabel("Date")
+              .staggerLabels(true)
+              .tickFormat(function(d) { return moment(d).format('YYYY-MM-DD'); });
+
+          chart.x2Axis
+                .tickFormat(function(d) { return moment(d).format('YYYY-MM-DD'); });
+
+          chart.yAxis
+              .axisLabel("Percentage")
+              .tickFormat(d3.format(',.2f'));
+
+          chart.y2Axis
+              .tickFormat(d3.format(',.2f'));
+
+          d3.select('#newlose svg')
               .datum(data)
               .transition().duration(500)
               .call(chart);
