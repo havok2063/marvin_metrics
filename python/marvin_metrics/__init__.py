@@ -6,7 +6,7 @@
 # @Author: Brian Cherinka
 # @Date:   2017-03-07 15:49:32
 # @Last modified by:   Brian Cherinka
-# @Last Modified time: 2017-03-08 16:34:20
+# @Last Modified time: 2017-03-09 15:28:31
 
 from __future__ import print_function, division, absolute_import
 from flask import Flask, Blueprint, send_from_directory, request, render_template
@@ -28,19 +28,19 @@ def create_app(debug=False):
     app.debug = debug
 
     # Load the Flask profile configuration
-    app.config["flask_profiler"] = {
-        "enabled": True,
-        "storage": {
-            "engine": "sqlite",
-            "FILE": "flask_profiler.sql"
-        },
-        "endpointRoot": "profiler",
-        "basicAuth": {
-            "enabled": False,
-        }
-    }
+    # app.config["flask_profiler"] = {
+    #     "enabled": True,
+    #     "storage": {
+    #         "engine": "sqlite",
+    #         "FILE": "flask_profiler.sql"
+    #     },
+    #     "endpointRoot": "profiler",
+    #     "basicAuth": {
+    #         "enabled": False,
+    #     }
+    # }
 
-    flask_profiler.init_app(app)
+    # flask_profiler.init_app(app)
 
     # JSGlue
     jsglue = JSGlue(app)
@@ -68,7 +68,7 @@ def create_app(debug=False):
     # ----------------------------
     # Manually add any configuration parameters
     # ----------------------------
-    app.config["UPLOAD_FOLDER"] = os.environ.get("MYAPP_DATA_DIR", None)
+    app.config["UPLOAD_FOLDER"] = os.environ.get("MM_DATA_DIR", None)
 
     # ----------------------------------
     # Web Route Registration - Import and register all your blueprints here

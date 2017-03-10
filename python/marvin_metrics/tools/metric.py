@@ -6,17 +6,22 @@
 # @Author: Brian Cherinka
 # @Date:   2017-03-08 16:46:38
 # @Last modified by:   Brian Cherinka
-# @Last Modified time: 2017-03-09 14:43:30
+# @Last Modified time: 2017-03-10 15:55:48
 
 from __future__ import print_function, division, absolute_import
 import dateutil
 import copy
 import leather
 import itertools
+import numpy as np
 from collections import Counter, OrderedDict, deque, defaultdict
 from functools import wraps
 from dateutil.rrule import rrule, DAILY, HOURLY
 from marvin_metrics.model.db import profiledb, Measurements
+try:
+    import ipwhois
+except ImportError as e:
+    ipwhois = None
 
 
 class OrderedDefaultDict(OrderedDict, defaultdict):
@@ -47,7 +52,6 @@ class FlaskProfiler(object):
         # from marvin import config
         # self._urlmap = config.urlmap
         # self.endpoints = {d['url'].replace('{', '<').replace('}', '>'): e for k, v in self._urlmap.items() for e, d in self._urlmap[k].items()}
-        self.filter_meas()
         self.build_dicts()
 
     def build_dicts(self):
@@ -69,17 +73,10 @@ class FlaskProfiler(object):
         #self.dips = self.sort_and_order(dips)
         #self.dnames = self.sort_and_order(dnames)
 
-    def filter_meas(self):
-        ''' filter out the measurements list of crap '''
-        namelist = ['jsglue', 'getgalidlist', 'galidselect']
-        self.meas = [m for m in self.allmeas if not any(itertools.imap(m.name.__contains__, namelist))]
-        iplist = ['128.220.160.159']
-        self.meas = [m for m in self.meas if m.ip not in iplist]
-
     def remove_devs(self):
         ''' filter out the developer ip addresses '''
-        iplist = ['128.220.160.159']
-        self.meas = [m for m in self.meas if m.ip not in iplist]
+        iplist = ['128.220.160.159', '74.109.254.28']
+        self.meas = [m for m in self.allmeas if m.ip not in iplist]
 
     def get_ips(self):
         ''' Get a list of all ips used across the entire sample, and a list of uniqips '''
@@ -127,7 +124,7 @@ class FlaskProfiler(object):
 
     def get_count(self, param):
         ''' retrieves date independent count of a given parameter across the entire set of measurements '''
-        paramlist = [m.__getattribute__(param) for m in self.meas]
+        paramlist = [m.__getattribute__(param) for m in self.allmeas]
         count = Counter(paramlist)
         return count
 
@@ -215,7 +212,7 @@ class FlaskProfiler(object):
         lostmerged = set(itertools.chain(*[val.keys() for val in lostdict.values()]))
         return newmerged, lostmerged
 
-    def get_newlosers(self):
+    def get_newlosers(self, percent=False):
         ''' return dictionaries of new, lost, repeated, and bounced users
 
         Returns sorted ordered dicts by date of the percentage of
@@ -229,6 +226,7 @@ class FlaskProfiler(object):
         lostips = {}
         repeatips = {}
         bounceips = {}
+        totalips = len(self.get_count('ip'))
         #self.dips = self.sort_and_order(self.dips)
         for date in self._dates:
             thedate = date.date()
@@ -240,18 +238,22 @@ class FlaskProfiler(object):
                 # lost users
                 liplist = [i for i in theips if i not in set(postips)]
                 lips = len(liplist)
-                lostips[thedate] = (float(lips) / len(theips)) * 100.
+                lostips[thedate] = (float(lips) / totalips) * 100. if percent else lips
                 # new users
                 niplist = [i for i in theips if i not in set(preips)]
                 nips = len(niplist)
-                newips[thedate] = (float(nips) / len(theips)) * 100.
+                # newips[thedate] = (float(nips) / len(theips)) * 100.
                 # repeated users
                 rips = len(theips) - nips
-                repeatips[thedate] = (float(rips) / len(theips)) * 100.
+                repeatips[thedate] = (float(rips) / totalips) * 100. if percent else rips
                 # bounced users
                 biplist = list(set(liplist) & set(niplist))
                 bips = len(biplist)
-                bounceips[thedate] = (float(bips) / len(theips)) * 100.
+                # bounceips[thedate] = (float(bips) / len(theips)) * 100.
+                # subtract bounce users from new users
+                nips = nips - bips
+                bounceips[thedate] = (float(bips) / totalips) * 100. if percent else bips
+                newips[thedate] = (float(nips) / totalips) * 100. if percent else nips
             else:
                 newips[thedate] = 0
                 repeatips[thedate] = 0
@@ -262,3 +264,65 @@ class FlaskProfiler(object):
         repeatips = self.sort_and_order(repeatips)
         bounceips = self.sort_and_order(bounceips)
         return newips, lostips, repeatips, bounceips
+
+    def make_cdf(self, data, norm_by='ip'):
+        ''' make a cumulative sum of some data '''
+        if norm_by == 'ip':
+            allx = len(set(itertools.chain(*[d.keys() for d in self.dips.values()])))
+
+        if isinstance(data, dict):
+            values = data.values()
+
+        cdf = np.cumsum(values) / allx
+        return cdf
+
+    def lookup_ips(self, ip=None, method='whois'):
+        ''' Look up the locations of the ips '''
+
+        self.locations = []
+        self.get_ips()
+
+        if ip and ip != '127.0.0.1':
+            self.locations.append(self.get_ip_dict(ip, method=method))
+        else:
+            myips = self.uniqips
+            for ip in myips:
+                if ip is not None and ip != '127.0.0.1':
+                    self.locations.append(self.get_ip_dict(ip, method=method))
+
+    def get_ip_dict(self, ip, method='whois'):
+        ''' Get the ip lookup dictionary '''
+
+        if not ipwhois:
+            raise ImportError('Cannot look up ips.  You do not have the ipwhois package installed!')
+
+        assert method in ['whois', 'rdap'], 'Method must either be rdap or whois'
+
+        ipwho = ipwhois.IPWhois(ip)
+        self.ipmethod = method
+        ipdict = None
+        if method == 'whois':
+            try:
+                ipdict = ipwho.lookup_whois()
+            except Exception as e:
+                print('Could not lookup ip {0}: {1}'.format(ip, e))
+        elif method == 'rdap':
+            try:
+                ipdict = ipwho.lookup_rdap()
+            except Exception as e:
+                print('Could not lookup ip {0}: {1}'.format(ip, e))
+        return ipdict
+
+    def extract_locations(self):
+        ''' Extraction the location info from the ip output '''
+        self.places = []
+        for loc in self.locations:
+            nets = loc['nets'][0] if len(loc['nets']) > 0 else None
+            locdict = {'asn_country_code': loc['asn_country_code'],
+                       'place': {'city': nets['city'] if nets else None,
+                                 'state': nets['state'] if nets else None,
+                                 'country': nets['country'] if nets else None}}
+            self.places.append(locdict)
+
+
+

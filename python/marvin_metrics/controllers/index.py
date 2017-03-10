@@ -58,7 +58,7 @@ class Index(FlaskView):
         for date in self.dates:
             thedate = date.date()
             dsum = sum(self.fp.dips[thedate].values()) if thedate in self.fp.dips else 0
-            values.append([thedate.isoformat(), dsum])
+            values.append({'date': thedate.isoformat(), 'count': dsum})
         data = [{'key': 'requests', 'values': values}]
         return jsonify(data)
 
@@ -70,7 +70,7 @@ class Index(FlaskView):
         for date in self.dates:
             thedate = date.date()
             dsum = len(self.fp.dips[thedate]) if thedate in self.fp.dips else 0
-            values.append([thedate.isoformat(), dsum])
+            values.append({'date':thedate.isoformat(), 'count':dsum})
         data = [{'key': 'unique visitors', 'values': values}]
         return jsonify(data)
 
@@ -116,9 +116,31 @@ class Index(FlaskView):
             repvals.append([k.isoformat(), rep[k]])
             bouncevals.append([k.isoformat(), bounce[k]])
         data = [{'key': 'new users', 'values': newvalues},
+                {'key': 'bounce users', 'values': bouncevals},
+                {'key': 'repeat users', 'values': repvals}]
+        return jsonify(data)
+
+    @route('/getcdf/', methods=['GET'], endpoint='getcdf')
+    def getcdf(self):
+        ''' Gets the JSON
+        '''
+        data = []
+        new, lost, rep, bounce = self.fp.get_newlosers()
+        keys = new.keys()
+        new = self.fp.make_cdf(new)
+        lost = self.fp.make_cdf(lost)
+        rep = self.fp.make_cdf(rep)
+
+        newvalues = []
+        lostvals = []
+        repvals = []
+        for i, k in enumerate(keys):
+            newvalues.append([k.isoformat(), new[i] * 100.])
+            lostvals.append([k.isoformat(), lost[i] * 100.])
+            repvals.append([k.isoformat(), rep[i] * 100.])
+        data = [{'key': 'new users', 'values': newvalues},
                 {'key': 'repeat users', 'values': repvals},
-                {'key': 'lost users', 'values': lostvals},
-                {'key': 'bounce users', 'values': bouncevals}]
+                {'key': 'lost users', 'values': lostvals}]
         return jsonify(data)
 
     @route('/gettd/', methods=['GET'], endpoint='gettd')
@@ -126,6 +148,7 @@ class Index(FlaskView):
         ''' Gets the JSON
         '''
 
+        print('getting times')
         values = []
         for date in self.dates:
             thedate = date.date()
@@ -138,34 +161,35 @@ class Index(FlaskView):
                 tdstats = [np.min(tdlist), np.median(tdlist), np.max(tdlist)]
                 values.append([thedate.isoformat(), tdstats[1] / 60.])
 
+        print('returning time data')
         data = [{'key': 'avg time deltas', 'values': values}]
         return jsonify(data)
 
-    @route('/getpagestream/', methods=['GET'], endpoint='getpagestream')
-    def getpagestream(self):
-        ''' Gets the JSON
-        '''
+    # @route('/getpagestream/', methods=['GET'], endpoint='getpagestream')
+    # def getpagestream(self):
+    #     ''' Gets the JSON
+    #     '''
 
-        topten = [u'/marvin2/api/maps/<name>/<bintype>/<template_kin>/',
-                  u'/marvin2/api/maps/<name>/<bintype>/<template_kin>/map/<property_name>/<channel>/',
-                  u'/marvin2/api/cubes/<name>/', u'/marvin2/galaxy/<galid>',
-                  u'/marvin2/api/general/getroutemap/', u'/marvin2/galaxy/getspaxel',
-                  u'/marvin2/api/modelcubes/<name>/<bintype>/<template_kin>/',
-                  u'/marvin2/api/spaxels/<name>/properties/<template_kin>/<x>/<y>/',
-                  u'/marvin2/api/spaxels/<name>/spectra/<x>/<y>/',
-                  u'/marvin2/api/spaxels/<name>/models/<template_kin>/<x>/<y>/']
+    #     topten = [u'/marvin2/api/maps/<name>/<bintype>/<template_kin>/',
+    #               u'/marvin2/api/maps/<name>/<bintype>/<template_kin>/map/<property_name>/<channel>/',
+    #               u'/marvin2/api/cubes/<name>/', u'/marvin2/galaxy/<galid>',
+    #               u'/marvin2/api/general/getroutemap/', u'/marvin2/galaxy/getspaxel',
+    #               u'/marvin2/api/modelcubes/<name>/<bintype>/<template_kin>/',
+    #               u'/marvin2/api/spaxels/<name>/properties/<template_kin>/<x>/<y>/',
+    #               u'/marvin2/api/spaxels/<name>/spectra/<x>/<y>/',
+    #               u'/marvin2/api/spaxels/<name>/models/<template_kin>/<x>/<y>/']
 
-        data = []
-        test = {k: list(g) for k, g in groupby(sorted(self.fp.meas, key=lambda t: t.name), lambda t: t.name)}
-        for k, v in test.items():
-            values = []
-            if k in topten:
-                c = Counter([m.starttime.date() for m in v])
-                for date in self.dates:
-                    values.append([date.date().isoformat(), c[date.date()] if date.date() in c else 0])
-                tmp = {'key': k, 'values': values}
-                data.append(tmp)
+    #     data = []
+    #     test = {k: list(g) for k, g in groupby(sorted(self.fp.meas, key=lambda t: t.name), lambda t: t.name)}
+    #     for k, v in test.items():
+    #         values = []
+    #         if k in topten:
+    #             c = Counter([m.starttime.date() for m in v])
+    #             for date in self.dates:
+    #                 values.append([date.date().isoformat(), c[date.date()] if date.date() in c else 0])
+    #             tmp = {'key': k, 'values': values}
+    #             data.append(tmp)
 
-        return jsonify(data)
+    #     return jsonify(data)
 
 Index.register(index)

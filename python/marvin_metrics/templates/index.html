@@ -119,6 +119,8 @@
       return path.join("");
     }
 
+    var stats = crossfilter();
+
     // This is the DC library for the heatmap
     var chart = dc.heatMap("#test");
     d3.json(Flask.url_for('index_page.getjson'), function(error, data) {
@@ -155,10 +157,20 @@
 
     // This is a line chart using the NVD3 library for total requests
     d3.json(Flask.url_for('index_page.getlinejson'), function(data) {
+
+        console.log('data', data[0]);
+        stats.add(data[0].values);
+        var all = stats.groupAll();;
+        var dateDim = stats.dimension(function(d) { return d.date});
+        var pagecountDim = stats.dimension(function(d) { return d.count});
+
+        console.log('stats', all);
+        console.log('pageDim', dateDim);
+
         nv.addGraph(function() {
           var chart = nv.models.lineWithFocusChart()
-            .x(function(d) { return moment(d[0]); })
-            .y(function(d) { return d[1]; })
+            .x(function(d) { return moment(d.date); })
+            .y(function(d) { return d.count; })
             .xScale(d3.time.scale())
             .clipEdge(true)
             .duration(300)
@@ -199,8 +211,8 @@
     d3.json(Flask.url_for('index_page.getuniqvisits'), function(data) {
         nv.addGraph(function() {
           var chart = nv.models.lineWithFocusChart()
-            .x(function(d) { return moment(d[0]); })
-            .y(function(d) { return d[1]; })
+            .x(function(d) { return moment(d.date); })
+            .y(function(d) { return d.count; })
             .xScale(d3.time.scale())
             .clipEdge(true)
             .duration(300)
@@ -281,17 +293,21 @@
 
     // This is a line chart using the NVD3 library for new/lost vistors
     d3.json(Flask.url_for('index_page.getnewlost'), function(data) {
+
+        var min = d3.min(d3.values(data[0].values), function(d) {return d[0];})
+        var max = d3.max(d3.values(data[0].values), function(d) {return d[0];})
+
         nv.addGraph(function() {
-          var chart = nv.models.lineWithFocusChart()
+          var chart = nv.models.stackedAreaWithFocusChart()
             .x(function(d) { return moment(d[0]); })
             .y(function(d) { return d[1]; })
             .xScale(d3.time.scale())
             .clipEdge(true)
             .duration(300)
-            .isArea(true)
+            //.isArea(true)
             .interpolate(interpolateSankey)
             .useInteractiveGuideline(true)
-            //.showLabels(true)
+            .brushExtent([moment(min), moment(max)])
             .color(d3.scale.category10().range());
 
           chart.xAxis
@@ -363,46 +379,10 @@
         });
     });
 
-
-// Sankey test
-    var data = {
-        nodes:
-            [
-                {'node': 1, 'name': 'Test 1', 'group':'date'},
-                {'node': 2, 'name': 'Test 2', 'group':'date'},
-                {'node': 3, 'name': 'Test 3', 'group':'time'},
-                {'node': 4, 'name': 'Test 4', 'group':'stuff'},
-                {'node': 5, 'name': 'Test 5', 'group':'place'},
-                {'node': 6, 'name': 'Test 6', 'group':'place'}
-            ],
-        links:
-            [
-                {'source': 0, 'target': 1, 'value': 2295},
-                {'source': 0, 'target': 5, 'value': 1199},
-                {'source': 1, 'target': 2, 'value': 1119},
-                {'source': 1, 'target': 5, 'value': 1176},
-                {'source': 2, 'target': 3, 'value': 487},
-                {'source': 2, 'target': 5, 'value': 632},
-                {'source': 3, 'target': 4, 'value': 301},
-                {'source': 3, 'target': 5, 'value': 186}
-            ]
-    };
-    nv.addGraph(function() {
-        var chart = nv.models.sankeyChart()
-            .width(790)
-            .units('elephants');
-        d3.select('#blank svg')
-            .datum(data)
-            .attr('width', 790)
-            .call(chart);
-        return chart;
-    });
-
-
-    // This is a line chart using the NVD3 library for page distribution over time
-    d3.json(Flask.url_for('index_page.getpagestream'), function(data) {
+    // This is a line chart using the NVD3 library for avg time duration
+    d3.json(Flask.url_for('index_page.getcdf'), function(data) {
         nv.addGraph(function() {
-          var chart = nv.models.stackedAreaWithFocusChart()
+          var chart = nv.models.cumulativeLineChart()
             .x(function(d) { return moment(d[0]); })
             .y(function(d) { return d[1]; })
             .xScale(d3.time.scale())
@@ -411,7 +391,6 @@
             //.isArea(true)
             .interpolate(interpolateSankey)
             .useInteractiveGuideline(true)
-            //.showLabels(true)
             .color(d3.scale.category10().range());
 
           chart.xAxis
@@ -420,17 +399,11 @@
               .staggerLabels(true)
               .tickFormat(function(d) { return moment(d).format('YYYY-MM-DD'); });
 
-          chart.x2Axis
-                .tickFormat(function(d) { return moment(d).format('YYYY-MM-DD'); });
-
           chart.yAxis
-              .axisLabel("Number")
+              .axisLabel("Count")
               .tickFormat(d3.format(',.2f'));
 
-          chart.y2Axis
-              .tickFormat(d3.format(',.2f'));
-
-          d3.select('#stackpages svg')
+          d3.select('#blank svg')
               .datum(data)
               .transition().duration(500)
               .call(chart);
@@ -440,6 +413,83 @@
           return chart;
         });
     });
+
+// Sankey test
+    // var data = {
+    //     nodes:
+    //         [
+    //             {'node': 1, 'name': 'Test 1', 'group':'date'},
+    //             {'node': 2, 'name': 'Test 2', 'group':'date'},
+    //             {'node': 3, 'name': 'Test 3', 'group':'time'},
+    //             {'node': 4, 'name': 'Test 4', 'group':'stuff'},
+    //             {'node': 5, 'name': 'Test 5', 'group':'place'},
+    //             {'node': 6, 'name': 'Test 6', 'group':'place'}
+    //         ],
+    //     links:
+    //         [
+    //             {'source': 0, 'target': 1, 'value': 2295},
+    //             {'source': 0, 'target': 5, 'value': 1199},
+    //             {'source': 1, 'target': 2, 'value': 1119},
+    //             {'source': 1, 'target': 5, 'value': 1176},
+    //             {'source': 2, 'target': 3, 'value': 487},
+    //             {'source': 2, 'target': 5, 'value': 632},
+    //             {'source': 3, 'target': 4, 'value': 301},
+    //             {'source': 3, 'target': 5, 'value': 186}
+    //         ]
+    // };
+    // nv.addGraph(function() {
+    //     var chart = nv.models.sankeyChart()
+    //         .width(790)
+    //         .units('elephants');
+    //     d3.select('#blank svg')
+    //         .datum(data)
+    //         .attr('width', 790)
+    //         .call(chart);
+    //     return chart;
+    // });
+
+
+    // // This is a line chart using the NVD3 library for page distribution over time
+    // d3.json(Flask.url_for('index_page.getpagestream'), function(data) {
+    //     nv.addGraph(function() {
+    //       var chart = nv.models.stackedAreaWithFocusChart()
+    //         .x(function(d) { return moment(d[0]); })
+    //         .y(function(d) { return d[1]; })
+    //         .xScale(d3.time.scale())
+    //         .clipEdge(true)
+    //         .duration(300)
+    //         //.isArea(true)
+    //         .interpolate(interpolateSankey)
+    //         .useInteractiveGuideline(true)
+    //         //.showLabels(true)
+    //         .color(d3.scale.category10().range());
+
+    //       chart.xAxis
+    //           .showMaxMin(false)
+    //           .axisLabel("Date")
+    //           .staggerLabels(true)
+    //           .tickFormat(function(d) { return moment(d).format('YYYY-MM-DD'); });
+
+    //       chart.x2Axis
+    //             .tickFormat(function(d) { return moment(d).format('YYYY-MM-DD'); });
+
+    //       chart.yAxis
+    //           .axisLabel("Number")
+    //           .tickFormat(d3.format(',.2f'));
+
+    //       chart.y2Axis
+    //           .tickFormat(d3.format(',.2f'));
+
+    //       d3.select('#stackpages svg')
+    //           .datum(data)
+    //           .transition().duration(500)
+    //           .call(chart);
+
+    //       nv.utils.windowResize(chart.update);
+
+    //       return chart;
+    //     });
+    // });
 
 </script>
 {% endblock code %}
